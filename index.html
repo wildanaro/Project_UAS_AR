@@ -29,6 +29,19 @@
       font-size: 1.25em;
       color: white;
     }
+    .hint {
+      position: fixed;
+      bottom: 16px;
+      left: 0;
+      width: 100%;
+      text-align: center;
+      color: white;
+      font-family: sans-serif;
+      font-size: 0.9em;
+      text-shadow: 0 0 4px rgba(0,0,0,0.8);
+      z-index: 999;
+      pointer-events: none;
+    }
   </style>
 </head>
 <body style="margin: 0; overflow: hidden;">
@@ -38,6 +51,84 @@
     <div>Memuat AR, mohon tunggu...</div>
   </div>
 
+  <div class="hint">Geser jari di layar untuk memutar model</div>
+
+  <script>
+    // Komponen: otomatis menyesuaikan ukuran & posisi model supaya pas di frame marker
+    // (mengatasi model yang tampil "zoom"/kegedean atau posisinya menembus marker)
+    AFRAME.registerComponent('auto-fit', {
+      schema: {
+        size: { type: 'number', default: 1 } // target ukuran terbesar model (dalam satuan marker)
+      },
+      init: function () {
+        this.el.addEventListener('model-loaded', (evt) => {
+          const mesh = evt.detail.model;
+          if (!mesh) return;
+
+          const box = new THREE.Box3().setFromObject(mesh);
+          const size = new THREE.Vector3();
+          box.getSize(size);
+
+          const maxDim = Math.max(size.x, size.y, size.z) || 1;
+          const scaleFactor = this.data.size / maxDim;
+          this.el.object3D.scale.set(scaleFactor, scaleFactor, scaleFactor);
+
+          // Pusatkan model & dudukkan di atas marker (bukan menembus/melayang aneh)
+          const center = new THREE.Vector3();
+          box.getCenter(center);
+          mesh.position.x -= center.x;
+          mesh.position.z -= center.z;
+          mesh.position.y -= box.min.y;
+        });
+      }
+    });
+
+    // Komponen: putar model manual pakai jari (drag di layar)
+    AFRAME.registerComponent('touch-rotate', {
+      init: function () {
+        this.rotX = 0;
+        this.rotY = 0;
+        this.isDown = false;
+        this.lastX = 0;
+        this.lastY = 0;
+
+        const start = (x, y) => { this.isDown = true; this.lastX = x; this.lastY = y; };
+        const move = (x, y) => {
+          if (!this.isDown) return;
+          const dx = x - this.lastX;
+          const dy = y - this.lastY;
+          this.rotY += dx * 0.5;
+          this.rotX += dy * 0.5;
+          this.el.object3D.rotation.set(
+            THREE.MathUtils.degToRad(this.rotX),
+            THREE.MathUtils.degToRad(this.rotY),
+            0
+          );
+          this.lastX = x;
+          this.lastY = y;
+        };
+        const end = () => { this.isDown = false; };
+
+        window.addEventListener('touchstart', (e) => {
+          const t = e.touches[0];
+          start(t.clientX, t.clientY);
+        }, { passive: true });
+
+        window.addEventListener('touchmove', (e) => {
+          const t = e.touches[0];
+          move(t.clientX, t.clientY);
+        }, { passive: true });
+
+        window.addEventListener('touchend', end);
+
+        // Dukungan mouse juga (untuk tes di laptop/desktop)
+        window.addEventListener('mousedown', (e) => start(e.clientX, e.clientY));
+        window.addEventListener('mousemove', (e) => move(e.clientX, e.clientY));
+        window.addEventListener('mouseup', end);
+      }
+    });
+  </script>
+
   <a-scene
     vr-mode-ui="enabled: false"
     embedded
@@ -45,29 +136,33 @@
     renderer="logarithmicDepthBuffer: true;"
   >
 
-    <!-- Marker Hiro (marker bawaan AR.js, bisa dicetak dari internet: "AR.js Hiro marker") -->
-    <a-marker preset="hiro">
+    <!-- Daftar aset: model 3D PLTAAA.glb (letakkan file ini satu folder dengan index.html) -->
+    <a-assets>
+      <a-asset-item id="modelPLTA" src="PLTAAA.glb"></a-asset-item>
+    </a-assets>
 
-      <!-- Teks nama proyek yang ditampilkan di atas marker -->
+    <!-- Marker Hiro (marker bawaan AR.js, bisa dicetak dari internet: "AR.js Hiro marker") -->
+    <a-marker preset="hiro" id="marker-utama">
+
+      <!-- Wrapper: yang diputar manual oleh jari, ukuran otomatis pas di marker -->
+      <a-entity
+        id="model-wrapper"
+        gltf-model="#modelPLTA"
+        auto-fit="size: 1"
+        touch-rotate
+        position="0 0.3 0"
+      ></a-entity>
+
+      <!-- Teks nama proyek yang ditampilkan di atas model -->
       <a-text
         value="StrukturPLTA"
         color="#FFFFFF"
         align="center"
-        position="0 0.5 0"
+        position="0 1.2 0"
         rotation="-90 0 0"
         width="4"
         scale="1 1 1"
       ></a-text>
-
-      <!-- Background sederhana di belakang teks agar lebih jelas -->
-      <a-plane
-        color="#2196F3"
-        opacity="0.6"
-        rotation="-90 0 0"
-        position="0 0 0"
-        width="1.5"
-        height="0.6"
-      ></a-plane>
 
     </a-marker>
 
