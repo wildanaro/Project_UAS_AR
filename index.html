@@ -3,184 +3,83 @@
 
 <head>
   <meta charset="utf-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no">
-  <title>AR STRUKTUR PLTA</title>
-  <script src="https://aframe.io/releases/1.6.0/aframe.min.js"></script>
-  <script src="https://cdn.jsdelivr.net/npm/aframe-extras@7.x/dist/aframe-extras.min.js"></script>
-  <script src="https://raw.githack.com/AR-js-org/AR.js/master/aframe/build/aframe-ar.js"></script>
-
+  <meta name="viewport" content="width=device-width, initial-scale=1, user-scalable=no">
+  <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
+  <meta http-equiv="Pragma" content="no-cache">
+  <meta http-equiv="Expires" content="0">
+  <title>Proje PLTA</title>
+  <script src="https://aframe.io/releases/1.4.2/aframe.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/aframe-extras@7.0.0/dist/aframe-extras.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/gh/AR-js-org/AR.js@3.4.5/aframe/build/aframe-ar.js"></script>
   <style>
-    html,
-    body {
-      margin: 0;
-      padding: 0;
-      overflow: hidden;
-      width: 100%;
-      height: 100%;
-      background: #000;
-    }
-
-    /* Video kamera & canvas AR full-screen, tidak gepeng/terpotong aneh */
-    a-scene {
-      width: 100vw;
-      height: 100vh;
-    }
-
-    video {
-      object-fit: cover !important;
-    }
-
-    /* Hilangkan UI bawaan AR.js yang mengganggu (kotak debug dll) */
-    .a-canvas {
-      width: 100% !important;
-      height: 100% !important;
-    }
-
-    /* Overlay petunjuk untuk user */
-    #hint {
+    .marquee-container {
       position: fixed;
-      bottom: 24px;
+      bottom: 0;
       left: 0;
-      right: 0;
-      text-align: center;
-      color: #fff;
+      width: 100%;
+      background: rgba(0, 0, 0, 0.75);
+      z-index: 9999;
+      overflow: hidden;
+      padding: 12px 0;
+      display: none;
+    }
+
+    .marquee-text {
+      display: inline-block;
+      white-space: nowrap;
+      color: #FFD700;
       font-family: Arial, sans-serif;
       font-size: 14px;
-      text-shadow: 0 1px 4px rgba(0, 0, 0, 0.8);
-      z-index: 999;
-      pointer-events: none;
-      transition: opacity 0.5s ease;
+      font-weight: bold;
+      animation: marquee 25s linear infinite;
     }
 
-    #hint.hide {
-      opacity: 0;
+    @keyframes marquee {
+      0% {
+        transform: translateX(100vw);
+      }
+
+      100% {
+        transform: translateX(-100%);
+      }
     }
   </style>
 </head>
 
-<body>
+<body style="margin: 0; overflow: hidden;">
 
-  <div id="hint">📷 Arahkan kamera ke marker &nbsp;|&nbsp; ✋ Geser layar untuk memutar objek</div>
-
-  <a-scene embedded
-    arjs="sourceType: webcam; debugUIEnabled: false; detectionMode: mono_and_matrix; matrixCodeType: 3x3;"
-    vr-mode-ui="enabled: false" renderer="logarithmicDepthBuffer: true; alpha: true;">
+  <a-scene embedded arjs="sourceType: webcam; debugUIEnabled: false;" vr-mode-ui="enabled: false">
     <a-assets>
       <audio id="musik-bg" src="audioplta.mp3" preload="auto"></audio>
     </a-assets>
 
-    <script>
-      // Kontrol rotasi objek dengan sentuhan/drag, plus auto-rotate saat idle
-      AFRAME.registerComponent('touch-rotate', {
-        schema: {
-          autoSpeed: { type: 'number', default: 12 } // derajat per detik saat auto-rotate
-        },
-        init: function () {
-          this.isDown = false;
-          this.lastX = 0;
-          this.lastY = 0;
-          this.rotX = 0;
-          this.rotY = 0;
-          this.userInteracted = false;
-          this.idleTimer = null;
-
-          const markUserActive = () => {
-            this.userInteracted = true;
-            clearTimeout(this.idleTimer);
-          };
-
-          const start = (x, y) => {
-            this.isDown = true;
-            this.lastX = x;
-            this.lastY = y;
-            markUserActive();
-          };
-
-          const move = (x, y) => {
-            if (!this.isDown) return;
-            const dx = x - this.lastX;
-            const dy = y - this.lastY;
-            this.rotY += dx * 0.5;
-            this.rotX += dy * 0.5;
-            this.applyRotation();
-            this.lastX = x;
-            this.lastY = y;
-          };
-
-          const end = () => {
-            this.isDown = false;
-            // setelah 4 detik tidak disentuh, boleh lanjut auto-rotate lagi
-            clearTimeout(this.idleTimer);
-            this.idleTimer = setTimeout(() => { this.userInteracted = false; }, 4000);
-          };
-
-          this.onTouchStart = (e) => start(e.touches[0].clientX, e.touches[0].clientY);
-          this.onTouchMove = (e) => move(e.touches[0].clientX, e.touches[0].clientY);
-          this.onMouseDown = (e) => start(e.clientX, e.clientY);
-          this.onMouseMove = (e) => move(e.clientX, e.clientY);
-
-          window.addEventListener('touchstart', this.onTouchStart, { passive: true });
-          window.addEventListener('touchmove', this.onTouchMove, { passive: true });
-          window.addEventListener('touchend', end);
-          window.addEventListener('mousedown', this.onMouseDown);
-          window.addEventListener('mousemove', this.onMouseMove);
-          window.addEventListener('mouseup', end);
-
-          // sembunyikan hint begitu user pertama kali sentuh
-          window.addEventListener('touchstart', () => {
-            document.getElementById('hint').classList.add('hide');
-          }, { once: true, passive: true });
-        },
-
-        tick: function (time, deltaTime) {
-          // auto-rotate hanya jika user sedang tidak berinteraksi
-          if (!this.isDown && !this.userInteracted) {
-            this.rotY += (this.data.autoSpeed * deltaTime) / 1000;
-            this.applyRotation();
-          }
-        },
-
-        applyRotation: function () {
-          this.el.object3D.rotation.set(
-            THREE.MathUtils.degToRad(this.rotX),
-            THREE.MathUtils.degToRad(this.rotY),
-            0
-          );
-        },
-
-        remove: function () {
-          window.removeEventListener('touchstart', this.onTouchStart);
-          window.removeEventListener('touchmove', this.onTouchMove);
-          window.removeEventListener('mousedown', this.onMouseDown);
-          window.removeEventListener('mousemove', this.onMouseMove);
-        }
-      });
-    </script>
-
-    <a-marker preset="hiro" id="marker-utama">
-      <a-entity gltf-model="PLTAAA.glb" scale="0.35 0.35 0.35" position="0 0.15 0" rotation="0 0 0"
-        touch-rotate="autoSpeed: 10" animation-mixer="clip: *; loop: repeat" shadow="cast: true; receive: true">
+    <a-marker preset="hiro" id="marker-utama" smooth="true" smoothCount="25" smoothTolerance="0.005"
+      smoothThreshold="8">
+      <!-- Parent entity untuk rotasi sudut pandang -->
+      <a-entity rotation="-75 0 0">
+        <a-entity gltf-model="PLTAAA.glb" scale="0.15 0.15 0.15" position="0 0 0"
+          animation-mixer="clip: *; loop: repeat">
+        </a-entity>
       </a-entity>
-      <a-entity light="type: directional; intensity: 0.9" position="0 3 1"></a-entity>
-      <a-entity light="type: ambient; intensity: 0.6"></a-entity>
     </a-marker>
 
     <a-entity camera></a-entity>
   </a-scene>
 
+
   <script>
     const marker = document.querySelector('#marker-utama');
     const musik = document.querySelector('#musik-bg');
-    const hint = document.getElementById('hint');
+    const marquee = document.getElementById('marquee');
 
     marker.addEventListener('markerFound', () => {
       musik.play().catch(() => { });
-      hint.classList.remove('hide');
+      marquee.style.display = 'block';
     });
 
     marker.addEventListener('markerLost', () => {
       musik.pause();
-      hint.classList.add('hide');
+      marquee.style.display = 'none';
     });
   </script>
 
