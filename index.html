@@ -16,9 +16,51 @@
     <a-assets>
       <audio id="musik-bg" src="ssstik.io_1784012772380.mp3" preload="auto"></audio>
     </a-assets>
+    <script>
+      // Touch/drag rotation for the model (works on mobile and desktop)
+      AFRAME.registerComponent('touch-rotate', {
+        init: function () {
+          this.isDown = false;
+          this.lastX = 0;
+          this.lastY = 0;
+          this.rotX = 0;
+          this.rotY = 0;
+
+          const start = (x, y) => { this.isDown = true; this.lastX = x; this.lastY = y; };
+          const move = (x, y) => {
+            if (!this.isDown) return;
+            const dx = x - this.lastX;
+            const dy = y - this.lastY;
+            this.rotY += dx * 0.5;
+            this.rotX += dy * 0.5;
+            this.el.object3D.rotation.set(
+              THREE.MathUtils.degToRad(this.rotX),
+              THREE.MathUtils.degToRad(this.rotY),
+              0
+            );
+            this.lastX = x;
+            this.lastY = y;
+          };
+          const end = () => { this.isDown = false; };
+
+          window.addEventListener('touchstart', (e) => start(e.touches[0].clientX, e.touches[0].clientY), { passive: true });
+          window.addEventListener('touchmove', (e) => move(e.touches[0].clientX, e.touches[0].clientY), { passive: true });
+          window.addEventListener('touchend', end);
+          window.addEventListener('mousedown', (e) => start(e.clientX, e.clientY));
+          window.addEventListener('mousemove', (e) => move(e.clientX, e.clientY));
+          window.addEventListener('mouseup', end);
+        }
+      });
+    </script>
 
     <a-marker preset="hiro" id="marker-utama">
-      <a-entity gltf-model="PLTAAA.glb" scale="0.3 0.3 0.3" position="0 0 0" animation-mixer="clip: *; loop: repeat">
+      <a-entity gltf-model="PLTAAA.glb"
+                scale="0.3 0.3 0.3"
+                position="0 0.3 0"
+                rotation="0 0 0"
+                touch-rotate
+                animation__spin="property: rotation; to: 0 360 0; loop: true; dur: 12000; easing: linear"
+                animation-mixer="clip: *; loop: repeat">
       </a-entity>
     </a-marker>
 
